@@ -1,6 +1,42 @@
-from aiogram import F
+from aiogram import Bot, Dispatcher, types
+from aiogram.filters import Command
+import os
+
+from app.agent import run_agent
+
+bot = Bot(token=os.getenv("BOT_TOKEN"))
+dp = Dispatcher()
 
 user_state = {}
+
+
+@dp.message(Command("start"))
+async def start(message: types.Message):
+    await message.answer(
+        "🔥 WOLF AI AGENT\n\n"
+        "/hunt - imkoniyat top\n"
+        "/ask savol ber\n"
+        "/startwork - agent rejimi\n"
+    )
+
+
+@dp.message(Command("hunt"))
+async def hunt(message: types.Message):
+    prompt = "Bugungi kunda internetda eng tez pul topish mumkin bo‘lgan 5 ta yo‘l ber"
+    result = run_agent(prompt)
+    await message.answer(result[:4000])
+
+
+@dp.message(Command("ask"))
+async def ask(message: types.Message):
+    text = message.text.replace("/ask", "").strip()
+    if not text:
+        await message.answer("Savol yoz")
+        return
+
+    result = run_agent(text)
+    await message.answer(result[:4000])
+
 
 @dp.message(Command("startwork"))
 async def startwork(message: types.Message):
@@ -12,8 +48,9 @@ async def startwork(message: types.Message):
         "- affiliate\n"
         "- service\n"
         "- content\n"
-        "- digital\n"
+        "- digital"
     )
+
 
 @dp.message()
 async def step_handler(message: types.Message):
@@ -42,16 +79,19 @@ async def step_handler(message: types.Message):
         user_state[uid]["budget"] = message.text
 
         prompt = f"""
-        User:
-        Yo‘nalish: {user_state[uid]['type']}
-        Maqsad: {user_state[uid]['goal']}
-        Budjet: {user_state[uid]['budget']}
+Foydalanuvchi uchun real strategiya tuz.
 
-        Shu user uchun real pul topish strategiya ber:
-        - konkret qadamlar
-        - qayerdan boshlash
-        - qayerdan pul keladi
-        """
+Yo‘nalish: {user_state[uid]['type']}
+Maqsad: {user_state[uid]['goal']}
+Budjet: {user_state[uid]['budget']}
+
+Javobda yoz:
+1. Eng yaxshi model
+2. 7 kunlik plan
+3. 30 kunlik plan
+4. Birinchi pulni qayerdan olish
+5. Mijozga yozish uchun tayyor text
+"""
 
         result = run_agent(prompt)
         await message.answer("🔥 STRATEGIYA:\n\n" + result[:4000])
