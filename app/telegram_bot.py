@@ -1,6 +1,6 @@
+import os
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
-import os
 
 from app.agent import run_agent
 
@@ -14,28 +14,94 @@ user_state = {}
 async def start(message: types.Message):
     await message.answer(
         "🔥 WOLF AI AGENT\n\n"
-        "/hunt - imkoniyat top\n"
-        "/ask savol ber\n"
-        "/startwork - agent rejimi\n"
+        "Командалар:\n"
+        "/hunt - имконият топ\n"
+        "/ask савол бер\n"
+        "/startwork - агент режими\n"
+        "/leads ниша - клиент типларини топ\n"
+        "/pitch текст - тайёр ёзиш матни\n\n"
+        "Мисоллар:\n"
+        "/hunt\n"
+        "/ask менга 0$ дан хизмат сотишни ўргат\n"
+        "/leads short-form video editing\n"
+        "/pitch TikTok блогер, видеоларида subtitle yo‘q"
     )
 
 
 @dp.message(Command("hunt"))
 async def hunt(message: types.Message):
-    prompt = "Bugungi kunda internetda eng tez pul topish mumkin bo‘lgan 5 ta yo‘l ber"
+    prompt = """
+Bugungi kunda internetda qonuniy ravishda tezroq pul topish mumkin bo‘lgan 5 ta yo‘lni ber.
+Har biri uchun:
+- nima o‘zi
+- kimga mos
+- qanday boshlanadi
+- birinchi pul qayerdan keladi
+Qisqa va konkret yoz.
+"""
     result = run_agent(prompt)
-    await message.answer(result[:4000])
+    await send_long_message(message, "🧭 HUNT:\n\n" + result)
 
 
 @dp.message(Command("ask"))
 async def ask(message: types.Message):
-    text = message.text.replace("/ask", "").strip()
+    text = message.text.replace("/ask", "", 1).strip()
     if not text:
-        await message.answer("Savol yoz")
+        await message.answer("Савол ёз. Масалан:\n/ask менга 0$ билан хизмат сотиш планини бер")
         return
 
     result = run_agent(text)
-    await message.answer(result[:4000])
+    await send_long_message(message, "🤖 JAVOB:\n\n" + result)
+
+
+@dp.message(Command("leads"))
+async def leads(message: types.Message):
+    niche = message.text.replace("/leads", "", 1).strip()
+    if not niche:
+        niche = "short-form video editing"
+
+    prompt = f"""
+Sen global lead finder san.
+
+Niche: {niche}
+
+10 ta potensial klient tipini ber.
+Har biri uchun yoz:
+1. Platforma
+2. Kim o‘zi
+3. Ularning muammosi
+4. Biz ularga nima taklif qilamiz
+
+Juda konkret yoz.
+"""
+    result = run_agent(prompt)
+    await send_long_message(message, "🕵️ LEADS:\n\n" + result)
+
+
+@dp.message(Command("pitch"))
+async def pitch(message: types.Message):
+    text = message.text.replace("/pitch", "", 1).strip()
+    if not text:
+        await message.answer(
+            "Текст ёз. Масалан:\n"
+            "/pitch TikTok блогер, видеоларида subtitle yo‘q, reelslari sust"
+        )
+        return
+
+    prompt = f"""
+Quyidagi klient uchun qisqa va kuchli outreach yoz:
+
+{text}
+
+Talab:
+- 2-4 gap
+- hook + value + soft CTA
+- tabiiy yoz
+- juda qattiq sotuvchi bo‘lma
+- ingliz tilida yoz
+"""
+    result = run_agent(prompt)
+    await send_long_message(message, "💬 PITCH:\n\n" + result)
 
 
 @dp.message(Command("startwork"))
@@ -55,30 +121,27 @@ async def startwork(message: types.Message):
 @dp.message()
 async def step_handler(message: types.Message):
     uid = message.from_user.id
+    text = (message.text or "").strip()
 
-    if uid not in user_state:
-        result = run_agent(message.text)
-        await message.answer(result[:4000])
-        return
+    if uid in user_state:
+        step = user_state[uid]["step"]
 
-    step = user_state[uid]["step"]
+        if step == 1:
+            user_state[uid]["type"] = text
+            user_state[uid]["step"] = 2
+            await message.answer("2-qadam:\nMaqsad yoz (масалан: 7 kunda 100$)")
+            return
 
-    if step == 1:
-        user_state[uid]["type"] = message.text
-        user_state[uid]["step"] = 2
-        await message.answer("2-qadam:\nMaqsad yoz (masalan: 7 kunda 100$)")
-        return
+        if step == 2:
+            user_state[uid]["goal"] = text
+            user_state[uid]["step"] = 3
+            await message.answer("3-qadam:\nBudjet yoz (0$, 50$, 200$)")
+            return
 
-    if step == 2:
-        user_state[uid]["goal"] = message.text
-        user_state[uid]["step"] = 3
-        await message.answer("3-qadam:\nBudjet yoz (0$, 50$, 200$)")
-        return
+        if step == 3:
+            user_state[uid]["budget"] = text
 
-    if step == 3:
-        user_state[uid]["budget"] = message.text
-
-        prompt = f"""
+            prompt = f"""
 Foydalanuvchi uchun real strategiya tuz.
 
 Yo‘nalish: {user_state[uid]['type']}
@@ -91,9 +154,24 @@ Javobda yoz:
 3. 30 kunlik plan
 4. Birinchi pulni qayerdan olish
 5. Mijozga yozish uchun tayyor text
+
+Javob amaliy bo‘lsin.
 """
 
-        result = run_agent(prompt)
-        await message.answer("🔥 STRATEGIYA:\n\n" + result[:4000])
+            result = run_agent(prompt)
+            await send_long_message(message, "🔥 STRATEGIYA:\n\n" + result)
 
-        del user_state[uid]
+            del user_state[uid]
+            return
+
+    if text.startswith("/"):
+        await message.answer("Буйруқ топилмади. /start ни босиб менюни кўр.")
+        return
+
+    result = run_agent(text)
+    await send_long_message(message, result)
+
+
+async def send_long_message(message: types.Message, text: str, chunk_size: int = 4000):
+    for i in range(0, len(text), chunk_size):
+        await message.answer(text[i:i + chunk_size])
