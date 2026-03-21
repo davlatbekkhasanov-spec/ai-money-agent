@@ -10,6 +10,11 @@ dp = Dispatcher()
 user_state = {}
 
 
+async def send_long_message(message: types.Message, text: str, chunk_size: int = 4000):
+    for i in range(0, len(text), chunk_size):
+        await message.answer(text[i:i + chunk_size])
+
+
 @dp.message(Command("start"))
 async def start(message: types.Message):
     await message.answer(
@@ -19,12 +24,14 @@ async def start(message: types.Message):
         "/ask савол бер\n"
         "/startwork - агент режими\n"
         "/leads ниша - клиент типларини топ\n"
-        "/pitch текст - тайёр ёзиш матни\n\n"
+        "/pitch текст - тайёр ёзиш матни\n"
+        "/auto ниша - lead + message тайёр\n\n"
         "Мисоллар:\n"
         "/hunt\n"
         "/ask менга 0$ дан хизмат сотишни ўргат\n"
         "/leads short-form video editing\n"
-        "/pitch TikTok блогер, видеоларида subtitle yo‘q"
+        "/pitch TikTok блогер, subtitle yo‘q\n"
+        "/auto video editing"
     )
 
 
@@ -56,9 +63,7 @@ async def ask(message: types.Message):
 
 @dp.message(Command("leads"))
 async def leads(message: types.Message):
-    niche = message.text.replace("/leads", "", 1).strip()
-    if not niche:
-        niche = "short-form video editing"
+    niche = message.text.replace("/leads", "", 1).strip() or "short-form video editing"
 
     prompt = f"""
 Sen global lead finder san.
@@ -102,6 +107,30 @@ Talab:
 """
     result = run_agent(prompt)
     await send_long_message(message, "💬 PITCH:\n\n" + result)
+
+
+@dp.message(Command("auto"))
+async def auto_mode(message: types.Message):
+    niche = message.text.replace("/auto", "", 1).strip()
+    if not niche:
+        await message.answer("Масалан:\n/auto video editing")
+        return
+
+    prompt = f"""
+Niche: {niche}
+
+5 ta real klient turi ber va har biri uchun outreach yoz.
+
+Format:
+1. Kim
+Platforma:
+Muammo:
+Taklif:
+Message:
+...
+"""
+    result = run_agent(prompt)
+    await send_long_message(message, "🤖 AUTO MODE:\n\n" + result)
 
 
 @dp.message(Command("startwork"))
@@ -157,7 +186,6 @@ Javobda yoz:
 
 Javob amaliy bo‘lsin.
 """
-
             result = run_agent(prompt)
             await send_long_message(message, "🔥 STRATEGIYA:\n\n" + result)
 
@@ -170,8 +198,3 @@ Javob amaliy bo‘lsin.
 
     result = run_agent(text)
     await send_long_message(message, result)
-
-
-async def send_long_message(message: types.Message, text: str, chunk_size: int = 4000):
-    for i in range(0, len(text), chunk_size):
-        await message.answer(text[i:i + chunk_size])
